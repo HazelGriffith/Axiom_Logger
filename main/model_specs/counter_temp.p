@@ -268,3 +268,16 @@ tff(confluence_transition_occurred,axiom,
 tff(infinity_is_greater,axiom,
 	infinity = $sum(time_passed,1.0)).
 
+tff(count_value,axiom,(count = 0)).
+tff(countUp_value,axiom,(countUp = 1)).
+tff(increment_value,axiom,(increment = 1)).
+tff(sigma_value,axiom,(sigma = 1)).
+
+tff(direction_in_msgs_rcvd,axiom,(num_rcvd(direction_in) = 0)).
+tff(increment_in_msgs_rcvd,axiom,(num_rcvd(increment_in) = 0)).
+
+tff(val_output_count_out_value,axiom,(val_output_count_out = 48)).
+tff(count_out_msgs_output,axiom,(num_output(count_out) = ).
+
+tff(next_state_conjecture,conjecture,((next_count = 58)&(next_countUp = 1)&(next_increment = 10)&(next_sigma = 1))).
+
