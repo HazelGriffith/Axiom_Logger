@@ -20,8 +20,6 @@ struct modelInfo {
     std::map<std::string, std::string> state_variables; // map of strings for {variable name: current value} pairs
     std::map<std::string, std::string> in_ports; // map of strings for {in port name: in port value} pairs
     std::map<std::string, std::string> out_ports; // map of strings for {out port name: out port value} pairs
-    std::string axiomFilePath;
-    std::string DEVSMapFilePath;
 };
 
 void from_json(const json& j, modelInfo& mi){
@@ -35,6 +33,9 @@ namespace cadmium {
         private:
             std::string outputpath; // filepath to the transition checks
             std::string atppath; // filepath to the ATP executeable
+            std::string axiomFolderPath;
+            std::string devsmapFolderPath;
+            std::vector<std::string> modelnames;
             std::ofstream file;
             std::map<std::string, modelInfo> state_per_model; // Stores every model's variables, in ports, and out ports
             
@@ -46,74 +47,29 @@ namespace cadmium {
              */
             AxiomLogger(std::string outputpath, 
                     std::string atppath, 
-                    std::map<std::string, std::string> modelAxiomPaths,
-
-                    std::string language): 
+                    std::string axiomFolderPath,
+                    std::string devsmapFolderPath,
+                    std::vector<std::string> modelnames): 
                                     Logger(), 
                                     outputpath(std::move(outputpath)), 
                                     atppath(std::move(atppath)), 
-                                    modelAxiomPaths(std::move(modelAxiomPaths)), 
-                                    language(std::move(language)),
+                                    axiomFolderPath(std::move(axiomFolderPath)),
+                                    devsmapFolderPath(std::move(devsmapFolderPath)),
+                                    modelnames(std::move(modelnames)),
                                     file() {}
 
             // Starts the output file stream
             void start() override {
 
-                for (auto modelDEVSMapPath : modelDEVSMapPaths){
-                    auto modelName = modelDEVSMapPath.first;
-                    auto filepath = modelDEVSMapPath.second;
+                for (std::string modelname : modelnames){
+                    std::string devsmapFilePath = devsmapFolderPath + modelname + ".json";
 
-                    std::map<std::string, std::string> variables;
-                    std::map<std::string, std::string> inPorts;
-                    std::map<std::string, std::string> outPorts;
-
-                    std::ifstream modelDEVSMapFile(filepath);
-                    json modelData = json::parse(modelDEVSMapFile);
+                    std::ifstream devsmapFile(filepath);
+                    json modelData = json::parse(devsmapFile);
                     modelInfo mi = modelData.get<modelInfo>();
 
                     std::cout << mi << std::endl;
 
-                }
-                
-
-
-
-
-                for (auto modelAxiomPath : modelAxiomPaths){
-                    auto modelName = modelAxiomPath.first;
-                    auto filepath = modelAxiomPath.second;
-
-                    std::ifstream modelAxiomFile(filepath);
-                    std::string line;
-                    std::map<std::string, std::map<std::string, std::string>> variables;
-
-                    if (modelAxiomFile.is_open()){
-                        while (std::getline(modelAxiomFile, line)){
-                            if (line == "%-----STATE VARIABLE DEFINITIONS"){
-                                break;
-                            }
-                        }
-
-                        while (std::getline(modelAxiomFile, line)){
-                            if (line == "%-----INPUT PORT DEFINITIONS") {
-                                break;
-                            } else if (line != ""){
-                                auto start = line.find("(")+1;
-                                auto end = line.find("_type");
-                                std::map<std::string, std::string> variable = {{"type",""},{"value",""}};
-                                variables.insert({line.substr(start, end - start),variable});
-                                std::getline(modelAxiomFile, line);
-                                std::getline(modelAxiomFile, line); // skips "next_" variable types
-                            }
-                        }
-
-                        modelAxiomFile.close();
-                    } else {
-                        std::cerr << "Unable to open the model axiom file at: " << filepath << std::endl;
-                    }
-
-                    state_variable_values_per_model.insert({modelName, variables});
-                    firstLog_per_model.insert({modelName, true});
                 }
 
 
@@ -147,19 +103,7 @@ namespace cadmium {
              * @param state string representation of the state.
              */
             void logState(double time, long modelId, const std::string& modelName, const std::string& state) override {
-                if (firstLog_per_model[modelName]){
-                    for (auto variable : state_variable_values_per_model[modelName]){
-                        std::string variableName = variable.first;
-                        auto variableNameLength = variableName.size();
-                        auto position = state.find(variableName)+variableNameLength+1;
-                        auto end_pos = state.find(";",position);
-                        std::string value = state.substr(position,end_pos-position);
-                        state_variable_values_per_model.at(modelName).at(variableName) = value;
-                    }
-                    firstLog_per_model[modelName] = false;
-                } else {
-                    // Just print it
-                }
+
             }
 
             std::string buildConjecture(std::vector<std::string> next_state_values){

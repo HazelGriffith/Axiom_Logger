@@ -1,11 +1,10 @@
 #include <limits>
+#include <vector>
 #include <map>
 #include <string>
 #include "include/Counter_Top.hpp"
 #include "include/axiom_logger.hpp"
 #include "cadmium/simulation/root_coordinator.hpp"
-#include "cadmium/simulation/logger/stdout.hpp"
-#include "cadmium/simulation/logger/csv.hpp"
 
 using namespace cadmium;
 
@@ -14,9 +13,14 @@ int main(int argc, char* argv[]){
 
 	auto rootCoordinator = RootCoordinator(counter_top);
 
-	std::map<std::string, std::string> counterModelPaths = {{"axioms","../main/model_specs/counter.p"},{"devsmap","../main/model_specs/counter_atomic.json"}};
-	std::map<std::string, std::map<std::string, std::string>> modelPaths = {{"counter",counterModelPaths}};
-	rootCoordinator.setLogger<AxiomLogger>("../simulation_results/counter_test.txt","../vampire",modelPaths,"tff");
+	std::string outputPath = "../simulation_results/counter_test.csv";
+	std::string atpPath = "../vampire";
+	std::string axiomFolderPath = "../main/axiom_files/";
+	std::string devsmapFolderPath = "../main/DEVSMap/";
+	std::vector<std::string> modelnames;
+	modelnames.push_back("counter");
+
+	rootCoordinator.setLogger<AxiomLogger>(outputPath,atpPath,axiomFolderPath,devsmapFolderPath,modelnames);
 
 	rootCoordinator.start();
 	rootCoordinator.simulate(30.0);
