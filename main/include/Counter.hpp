@@ -4,18 +4,10 @@
 #include <random>
 #include <iostream>
 #include "cadmium/modeling/devs/atomic.hpp"
+#include "Counter_state.hpp"
+#include "Counter_functions.hpp"
 
 using namespace cadmium;
-
-struct counter_modelState {
-    double sigma;
-    int count;
-    int increment;
-    bool countUp;
-
-    explicit counter_modelState(): sigma(1), count(0), increment(1), countUp(true){
-    }
-};
 
 std::ostream& operator<<(std::ostream &out, const counter_modelState& state) {
     out  << "sigma:" << state.sigma << ";count:" << state.count << ";increment:" << state.increment << ";countUp:" << state.countUp;
@@ -37,25 +29,12 @@ class Counter : public Atomic<counter_modelState> {
 
     // inernal transition
     void internalTransition(counter_modelState& state) const override {
-        if (state.countUp){
-            state.count += state.increment;
-        } else {
-            state.count -= state.increment;
-        }
+        internal_transition_body(&state);
     }
 
     // external transition
     void externalTransition(counter_modelState& state, double e) const override {
-        if (!direction_in->empty()){
-            for (const auto x: direction_in->getBag()){
-                state.countUp = x;
-            }
-        }
-        if (!increment_in->empty()){
-            for (const auto x: increment_in->getBag()){
-                state.increment = x;
-            }
-        }
+        external_transition_body(&state, direction_in, increment_in);
     }
 
     void confluentTransition(counter_modelState& state, double e) const override {
@@ -66,12 +45,12 @@ class Counter : public Atomic<counter_modelState> {
     
     // output function
     void output(const counter_modelState& state) const override {
-        count_out->addMessage(state.count);
+        output_body(&state, count_out);
     }
 
     // time_advance function
     [[nodiscard]] double timeAdvance(const counter_modelState& state) const override {     
-            return state.sigma;
+        return time_advance_body(&state);
     }
 };
 

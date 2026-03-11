@@ -10,18 +10,33 @@
 #include <vector>
 #include <map>
 #include "cadmium/simulation/logger/logger.hpp"
+#include "nlohmann/json.hpp"
+
+using json = nlohmann::json;
 
 namespace fs = std::filesystem;
+
+struct modelInfo {
+    std::map<std::string, std::string> state_variables; // map of strings for {variable name: current value} pairs
+    std::map<std::string, std::string> in_ports; // map of strings for {in port name: in port value} pairs
+    std::map<std::string, std::string> out_ports; // map of strings for {out port name: out port value} pairs
+    std::string axiomFilePath;
+    std::string DEVSMapFilePath;
+};
+
+void from_json(const json& j, modelInfo& mi){
+    j.at("s").get_to(mi.state_variables);
+    j.at("x").get_to(mi.in_ports);
+    j.at("y").get_to(mi.out_ports);
+}
 
 namespace cadmium {
     class AxiomLogger: public Logger {
         private:
             std::string outputpath; // filepath to the transition checks
             std::string atppath; // filepath to the ATP executeable
-            std::map<std::string, std::string> modelAxiomPaths; // filepaths to axiom files for each atomic model
             std::ofstream file;
-            std::map<std::string, std::map<std::string, std::string>> state_variable_values_per_model; // state variable {name,value} pairs for each atomic model
-            std::map<std::string, bool> firstLog_per_model; // is true for given model if it has not been logged yet
+            std::map<std::string, modelInfo> state_per_model; // Stores every model's variables, in ports, and out ports
             
         public:
             /**
@@ -40,6 +55,27 @@ namespace cadmium {
 
             // Starts the output file stream
             void start() override {
+
+                for (auto modelDEVSMapPath : modelDEVSMapPaths){
+                    auto modelName = modelDEVSMapPath.first;
+                    auto filepath = modelDEVSMapPath.second;
+
+                    std::map<std::string, std::string> variables;
+                    std::map<std::string, std::string> inPorts;
+                    std::map<std::string, std::string> outPorts;
+
+                    std::ifstream modelDEVSMapFile(filepath);
+                    json modelData = json::parse(modelDEVSMapFile);
+                    modelInfo mi = modelData.get<modelInfo>();
+
+                    std::cout << mi << std::endl;
+
+                }
+                
+
+
+
+
                 for (auto modelAxiomPath : modelAxiomPaths){
                     auto modelName = modelAxiomPath.first;
                     auto filepath = modelAxiomPath.second;

@@ -14,8 +14,8 @@ int main(int argc, char* argv[]){
 
 	auto rootCoordinator = RootCoordinator(counter_top);
 
-	std::map<std::string, std::string> modelAxiomPaths = {{"counter","../main/model_axioms/counter.p"}};
-	rootCoordinator.setLogger<AxiomLogger>("../simulation_results/counter_test.txt","../vampire",modelAxiomPaths);
+	//std::map<std::string, std::string> modelAxiomPaths = {{"counter","../main/model_axioms/counter.p"}};
+	rootCoordinator.setLogger<CSVLogger>("../simulation_results/counter_test.csv",",");
 
 	rootCoordinator.start();
 	rootCoordinator.simulate(30.0);
