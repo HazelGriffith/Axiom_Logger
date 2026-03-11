@@ -1,0 +1,107 @@
+{
+    "counter": {
+        "s": {
+            "count": "int",
+            "increment": "int",
+            "countUp": "bool",
+            "sigma": "double"
+        },
+        "x": {
+            "direction_in": "bool",
+            "increment_in": "int"
+        },
+        "y": {
+            "count_out": "int"
+        },
+        "delta_int": {
+            "countUp == true": {
+                "count": "count + increment"
+            },
+            "countUp == false": {
+                "count": "count - increment"
+            },
+            "otherwise": {}
+        },
+        "delta_ext": {
+            "direction_in.bagSize() != 0": {
+                "increment_in.bagSize() == 0": {
+                    "countUp": "direction_in.bag(-1)"
+                },
+                "increment_in.bagSize() != 0": {
+                    "countUp": "direction_in.bag(-1)",
+                    "increment": "increment_in.bag(-1)"
+                }
+            },
+            "direction_in.bagSize() == 0": {
+                "increment_in.bagSize() == 0": {
+                },
+                "increment_in.bagSize() != 0": {
+                    "increment": "increment_in.bag(-1)"
+                }
+            },
+            "otherwise": {}
+        },
+        "delta_con": {
+            "direction_in.bagSize() != 0": {
+                "increment_in.bagSize() != 0": {
+                    "direction_in.bag(-1) == true": {
+                        "count": "count + increment_in.bag(-1)",
+                        "increment": "increment_in.bag(-1)",
+                        "countUp": "direction_in.bag(-1)"
+                    },
+                    "direction_in.bag(-1) == false": {
+                        "count": "count - increment_in.bag(-1)",
+                        "increment": "increment_in.bag(-1)",
+                        "countUp": "direction_in.bag(-1)"
+                    }
+                },
+                "increment_in.bagSize() == 0": {
+                    "direction_in.bag(-1) == true": {
+                        "count": "count + increment",
+                        "countUp": "direction_in.bag(-1)"
+                    },
+                    "direction_in.bag(-1) == false": {
+                        "count": "count - increment",
+                        "countUp": "direction_in.bag(-1)"
+                    }
+                }
+            },
+            "direction_in.bagSize() == 0": {
+                "increment_in.bagSize() != 0": {
+                    "countUp == true": {
+                        "increment": "increment_in.bag(-1)",
+                        "count": "count + increment_in.bag(-1)"
+                    },
+                    "countUp == false": {
+                        "increment": "increment_in.bag(-1)",
+                        "count": "count - increment_in.bag(-1)"
+                    }
+                },
+                "increment_in.bagSize() == 0": {
+                    "countUp == true": {
+                        "count": "count + increment"
+                    },
+                    "countUp == false": {
+                        "count": "count - increment"
+                    }
+                }
+            },
+            "otherwise": {
+            }
+        },
+        "lambda": {
+            "otherwise": {
+                "count_out.addMessage": "count"
+            }
+        },
+        "ta": {
+            "otherwise": {
+                "time_advance": "sigma"
+            }
+        }
+    },
+    "include_sets": [
+        "default_sets.json"
+    ],
+    "parameters": {}
+}

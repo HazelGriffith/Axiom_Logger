@@ -46,12 +46,15 @@ namespace cadmium {
              */
             AxiomLogger(std::string outputpath, 
                     std::string atppath, 
-                    std::map<std::string, std::string> modelAxiomPaths): 
-                                                Logger(), 
-                                                outputpath(std::move(outputpath)), 
-                                                atppath(std::move(atppath)), 
-                                                modelAxiomPaths(std::move(modelAxiomPaths)), 
-                                                file() {}
+                    std::map<std::string, std::string> modelAxiomPaths,
+
+                    std::string language): 
+                                    Logger(), 
+                                    outputpath(std::move(outputpath)), 
+                                    atppath(std::move(atppath)), 
+                                    modelAxiomPaths(std::move(modelAxiomPaths)), 
+                                    language(std::move(language)),
+                                    file() {}
 
             // Starts the output file stream
             void start() override {
@@ -82,7 +85,7 @@ namespace cadmium {
 
                     std::ifstream modelAxiomFile(filepath);
                     std::string line;
-                    std::map<std::string, std::string> variables;
+                    std::map<std::string, std::map<std::string, std::string>> variables;
 
                     if (modelAxiomFile.is_open()){
                         while (std::getline(modelAxiomFile, line)){
@@ -97,7 +100,8 @@ namespace cadmium {
                             } else if (line != ""){
                                 auto start = line.find("(")+1;
                                 auto end = line.find("_type");
-                                variables.insert({line.substr(start, end - start),""});
+                                std::map<std::string, std::string> variable = {{"type",""},{"value",""}};
+                                variables.insert({line.substr(start, end - start),variable});
                                 std::getline(modelAxiomFile, line);
                                 std::getline(modelAxiomFile, line); // skips "next_" variable types
                             }
@@ -153,12 +157,28 @@ namespace cadmium {
                         state_variable_values_per_model.at(modelName).at(variableName) = value;
                     }
                     firstLog_per_model[modelName] = false;
+                } else {
+                    // Just print it
                 }
             }
 
+            std::string buildConjecture(std::vector<std::string> next_state_values){
+                std::string conjecture = "";
+                for (int i = 0; i < next_state_values.size(); i++){
+                    conjecture += "(" + next_state_values[i] + ")";
+                    if (i < next_state_values.size()-1){
+                        conjecture += "&";
+                    }
+                }
+                return conjecture;
+            }
 
             void logModel(double time, long modelId, const std::shared_ptr<AtomicInterface>& model, bool logOutput) override {
                 
+                if (time > curr_time){
+                    curr_time = time;
+                }
+
                 std::string modelName = model->getId();
                 if (modelAxiomPaths.count(modelName) != 0){
                     std::string tempFilepath = modelAxiomPaths[modelName].substr(0,modelAxiomPaths[modelName].find(modelName));
@@ -171,15 +191,82 @@ namespace cadmium {
                     }
                     
                     std::string state = model->logState();
+                    std::string new_lines = "";
+                    std::string conjecture = language + "(next_state_conjecture,conjecture,(";
+                    std::vector<std::string> next_state_values;
 
                     for (auto variable : state_variable_values_per_model[modelName]){
                         std::string variableName = variable.first;
                         auto variableNameLength = variableName.size();
                         auto position = state.find(variableName)+variableNameLength+1;
                         auto end_pos = state.find(";",position);
-                        std::string value = state.substr(position,end_pos-position);
-
+                        std::string next_value = state.substr(position,end_pos-position);
+                        std::string curr_value = state_variable_values_per_model.at(modelName).at(variableName);
+                        std::string curr_value_axiom = language + "(" + variableName + "_value,axiom,(" + variableName + " = " + curr_value + ")).\n";
+                        new_lines += curr_value_axiom;
+                        next_state_values.push_back("next_" + variableName + " = " + next_value);
                     }
+
+                    new_lines += "\n";
+
+                    for (const auto& inPort: model->getInPorts()) {
+
+                        std::string portName = inPort->getId();
+                        std::size_t number_of_msgs = inPort->size();
+
+                        std::string number_of_msgs_axiom = language + "(" + portName + "_msgs_rcvd,axiom,(num_rcvd(" + portName + ") = ";
+                        if (number_of_msgs > 0){
+                            number_of_msgs_axiom += std::to_string(number_of_msgs) + ")).\n";
+
+                            std::string value_rcvd = inPort->logMessage(number_of_msgs-1);
+                            std::string val_rcvd_axiom = language + "(val_rcvd_" + portName + "_value,axiom,(val_rcvd_" + portName + " = " + value_rcvd + ")).\n";
+                            new_lines += val_rcvd_axiom;
+
+                        } else {
+                            number_of_msgs_axiom += "0)).\n";
+                        }
+                        new_lines += number_of_msgs_axiom;
+
+                        /**
+                        for (std::size_t i = 0; i < inPort->size(); ++i) {
+                            this->logOutput(time, modelId, model->getId(), inPort->getId(), inPort->logMessage(i));
+                        }
+                        */
+                    }
+
+                    new_lines += "\n";
+
+                    if (logOutput){
+                        for (const auto& outPort: model->getOutPorts()) {
+                            std::string portName = outPort->getId();
+                            std::size_t number_of_msgs = outPort->size();
+
+                            std::string number_of_msgs_axiom = language + "(" + portName + "_msgs_output,axiom,(num_output(" + portName + ") = ";
+                            if (number_of_msgs > 0){
+                                number_of_msgs_axiom += std::to_string(number_of_msgs) + ")).\n";
+
+                                std::string value_output = outPort->logMessage(number_of_msgs-1);
+                                std::string val_output_axiom = language + "(val_output_" + portName + "_value,axiom,(val_output_" + portName + " = " + value_output + ")).\n";
+                                new_lines += val_output_axiom;
+
+                            } else {
+                                number_of_msgs_axiom += "0)).\n";
+                            }
+
+                            new_lines += number_of_msgs_axiom;
+                        }
+                    }
+                    
+                    new_lines += "\n";
+
+                    conjecture += buildConjecture(next_state_values) + ")).\n";
+                    new_lines += conjecture;
+
+                    std::ofstream temp_problem_file(tempFilepath,std::ios::app);
+                    if (temp_problem_file.is_open()){
+                        temp_problem_file << new_lines << std::endl;
+                    }
+                    temp_problem_file.close();
                 }
                 
             }
