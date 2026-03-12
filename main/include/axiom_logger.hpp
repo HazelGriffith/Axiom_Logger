@@ -22,6 +22,26 @@ struct modelInfo {
     std::map<std::string, std::string> out_ports; // map of strings for {out port name: out port value} pairs
 };
 
+std::ostream& operator << (std::ostream& os, const modelInfo& mi) {
+
+    os << "Model(" << "s{ ";
+    for (const auto& [key, value]: mi.state_variables ){
+        os << key << " : " << value << "," << std::endl;
+    }
+    
+    os << "x{ ";
+    for (const auto& [key, value]: mi.in_ports){
+        os << key << " : " << value << "," << std::endl;
+    }
+
+    os << "y{ ";
+    for (const auto& [key, value]: mi.out_ports){
+        os << key << " : " << value << "," << std::endl;
+    }
+    os << std::endl;
+    return os; 
+}
+
 void from_json(const json& j, modelInfo& mi){
     j.at("s").get_to(mi.state_variables);
     j.at("x").get_to(mi.in_ports);
@@ -64,12 +84,13 @@ namespace cadmium {
                 for (std::string modelname : modelnames){
                     std::string devsmapFilePath = devsmapFolderPath + modelname + ".json";
 
-                    std::ifstream devsmapFile(filepath);
-                    json modelData = json::parse(devsmapFile);
+                    std::ifstream devsmapFile(devsmapFilePath);
+                    json modelData = json::parse(devsmapFile).at(modelname);
                     modelInfo mi = modelData.get<modelInfo>();
 
                     std::cout << mi << std::endl;
 
+                    state_per_model.emplace(modelname, mi);
                 }
 
 
@@ -118,6 +139,7 @@ namespace cadmium {
             }
 
             void logModel(double time, long modelId, const std::shared_ptr<AtomicInterface>& model, bool logOutput) override {
+                /**
                 
                 if (time > curr_time){
                     curr_time = time;
@@ -175,9 +197,9 @@ namespace cadmium {
                         for (std::size_t i = 0; i < inPort->size(); ++i) {
                             this->logOutput(time, modelId, model->getId(), inPort->getId(), inPort->logMessage(i));
                         }
-                        */
+                        
                     }
-
+                    
                     new_lines += "\n";
 
                     if (logOutput){
@@ -211,8 +233,10 @@ namespace cadmium {
                         temp_problem_file << new_lines << std::endl;
                     }
                     temp_problem_file.close();
+
+                    
                 }
-                
+                */
             }
     };
 }
