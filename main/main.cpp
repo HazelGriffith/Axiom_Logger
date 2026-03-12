@@ -20,7 +20,7 @@ int main(int argc, char* argv[]){
 	std::vector<std::string> modelnames;
 	modelnames.push_back("counter");
 
-	rootCoordinator.setLogger<AxiomLogger>(outputPath,atpPath,axiomFolderPath,devsmapFolderPath,modelnames);
+	rootCoordinator.setLogger<AxiomLogger>(outputPath,atpPath,axiomFolderPath,devsmapFolderPath,modelnames,",");
 
 	rootCoordinator.start();
 	rootCoordinator.simulate(30.0);

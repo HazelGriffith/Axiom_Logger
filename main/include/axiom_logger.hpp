@@ -17,9 +17,22 @@ using json = nlohmann::json;
 namespace fs = std::filesystem;
 
 struct modelInfo {
-    std::map<std::string, std::string> state_variables; // map of strings for {variable name: current value} pairs
-    std::map<std::string, std::string> in_ports; // map of strings for {in port name: in port value} pairs
-    std::map<std::string, std::string> out_ports; // map of strings for {out port name: out port value} pairs
+    std::map<std::string, std::string> state_variables; // map of strings for {variable name: variable type} pairs
+    std::map<std::string, std::pair<std::string, std::string>> variable_values; // map of variable names to current and next value pairs
+    std::map<std::string, std::string> in_ports; // map of strings for {in port name: in port type} pairs
+    std::map<std::string, std::string> in_port_values; // map of input ports and their current values
+    std::map<std::string, std::string> out_ports; // map of strings for {out port name: out port type} pairs
+    std::map<std::string, std::string> out_port_values; // map of output ports and their current values
+    
+
+    modelInfo copy(){
+        modelInfo mi2;
+        mi2.state_variables = state_variables;
+        mi2.in_ports = in_ports;
+        mi2.out_ports = out_ports;
+        mi2.variable_values = variable_values;
+        return mi2;
+    }
 };
 
 std::ostream& operator << (std::ostream& os, const modelInfo& mi) {
@@ -51,34 +64,42 @@ void from_json(const json& j, modelInfo& mi){
 namespace cadmium {
     class AxiomLogger: public Logger {
         private:
-            std::string outputpath; // filepath to the transition checks
+            std::string outputpath; // filepath to the simulation log
             std::string atppath; // filepath to the ATP executeable
-            std::string axiomFolderPath;
-            std::string devsmapFolderPath;
-            std::vector<std::string> modelnames;
-            std::ofstream file;
-            std::map<std::string, modelInfo> state_per_model; // Stores every model's variables, in ports, and out ports
+            std::string axiomFolderPath; // filepath to the folder with axiom files
+            std::string devsmapFolderPath; // filepath to the folder with DEVSMap files
+            std::vector<std::string> modelnames; // list of names for each model type
+            std::map<long, std::pair<std::string, modelInfo>> activeModels; // Associates every simulated model with its type and unique state
+            std::map<std::string, modelInfo> modelTypeInfo; // Stores every model types' variables, in ports, and out ports
+            std::ofstream file; // file for the simulation log to be printed to
+            std::string sep; // seperator character for the log
             
         public:
             /**
              * Constructor function.
-             * @param outputpath filepath to the transition checks
+             * @param outputpath filepath to the simulation log
              * @param atppath filepath to the ATP executeable
+             * @param axiomFolderPath filepath to the ATP executeable
+             * @param devsmapFolderPath; // filepath to the folder with DEVSMap files
+             * @param modelnames; // list of names for each model type
+             * @param sep; // seperator character for the log
              */
             AxiomLogger(std::string outputpath, 
                     std::string atppath, 
                     std::string axiomFolderPath,
                     std::string devsmapFolderPath,
-                    std::vector<std::string> modelnames): 
+                    std::vector<std::string> modelnames, 
+                    std::string sep): 
                                     Logger(), 
                                     outputpath(std::move(outputpath)), 
                                     atppath(std::move(atppath)), 
                                     axiomFolderPath(std::move(axiomFolderPath)),
                                     devsmapFolderPath(std::move(devsmapFolderPath)),
                                     modelnames(std::move(modelnames)),
+                                    sep(std::move(sep)),
                                     file() {}
 
-            // Starts the output file stream
+            // Starts the output file stream and retrieves model info
             void start() override {
 
                 for (std::string modelname : modelnames){
@@ -88,18 +109,28 @@ namespace cadmium {
                     json modelData = json::parse(devsmapFile).at(modelname);
                     modelInfo mi = modelData.get<modelInfo>();
 
-                    std::cout << mi << std::endl;
+                    for (const auto& [key, value]: mi.state_variables ){
+                        mi.variable_values.emplace(key, std::make_pair("",""));
+                    }
+                    
+                    for (const auto& [key, value]: mi.in_ports){
+                        mi.in_port_values.emplace(key, "");
+                    }
 
-                    state_per_model.emplace(modelname, mi);
+                    for (const auto& [key, value]: mi.out_ports){
+                        mi.out_port_values.emplace(key, "");
+                    }
+
+                    modelTypeInfo.emplace(modelname, mi);
                 }
 
 
                 file.open(outputpath);
-                file << "Checking state transition correctness with " << atppath << std::endl;
-
+                file << "sep=" << sep << std::endl; //<! makes it easier to open in excel.
+                file << "time" << sep << "model_id" << sep << "model_name" << sep << "port_name" << sep << "data" << std::endl;
             }
 
-            //! It closes the output file after the simulation.
+            // It closes the output file after the simulation.
             void stop() override {
                 file.close();
             }
@@ -113,7 +144,7 @@ namespace cadmium {
              * @param output string representation of the output message.
              */
             void logOutput(double time, long modelId, const std::string& modelName, const std::string& portName, const std::string& output) override {
-                std::cout << "\x1B[32m" << time << "," << modelId << "," << modelName << "," << portName << "," << output << "\033[0m" << std::endl;
+                file << time << sep << modelId << sep << modelName << sep << portName << sep << output << std::endl;
             }
 
             /**
@@ -124,7 +155,22 @@ namespace cadmium {
              * @param state string representation of the state.
              */
             void logState(double time, long modelId, const std::string& modelName, const std::string& state) override {
+                json next_state = json::parse(state);
 
+                if (!activeModels.contains(modelId)){
+                    if (modelTypeInfo.contains(modelName)){
+                        std::pair modelTypeAndState = std::make_pair(modelName,modelTypeInfo[modelName].copy());
+                        activeModels.emplace(modelId,modelTypeAndState);
+                    } else {
+                        assert(("The model name must match the model type",false));
+                    }
+                } else {
+                    thisModelInfo = activeModels.at(modelId).second;
+                    
+                }
+                
+
+                file << time << sep << modelId << sep << modelName << sep << sep << state << std::endl;
             }
 
             std::string buildConjecture(std::vector<std::string> next_state_values){

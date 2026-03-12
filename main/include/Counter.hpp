@@ -10,7 +10,7 @@
 using namespace cadmium;
 
 std::ostream& operator<<(std::ostream &out, const counter_modelState& state) {
-    out  << "sigma:" << state.sigma << ";count:" << state.count << ";increment:" << state.increment << ";countUp:" << state.countUp;
+    out  << "{\"sigma\":\"" << state.sigma << "\",\"count\":\"" << state.count << "\",\"increment\":\"" << state.increment << "\",\"countUp\":\"" << state.countUp << "\"}";
     return out;
 }
 

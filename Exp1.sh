@@ -1,2 +1,2 @@
 cd bin
-./BehavValCadmium
+./Axiom_Logger
