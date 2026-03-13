@@ -9,6 +9,7 @@
 #include <utility>
 #include <vector>
 #include <map>
+#include <regex>
 #include "cadmium/simulation/logger/logger.hpp"
 #include "nlohmann/json.hpp"
 
@@ -28,9 +29,11 @@ struct modelInfo {
     modelInfo copy(){
         modelInfo mi2;
         mi2.state_variables = state_variables;
-        mi2.in_ports = in_ports;
-        mi2.out_ports = out_ports;
         mi2.variable_values = variable_values;
+        mi2.in_ports = in_ports;
+        mi2.in_port_values = in_port_values;
+        mi2.out_ports = out_ports;
+        mi2.out_port_values = out_port_values;
         return mi2;
     }
 };
@@ -166,13 +169,40 @@ namespace cadmium {
                     }
                 } else {
                     thisModelInfo = activeModels.at(modelId).second;
-                    
+                    for (const auto& [key, value]: thisModelInfo.variable_values){
+                        value.first = value.second;
+                        value.second = "";
+                        thisModelInfo.variable_values[key] = value;
+                    }
                 }
                 
+
+
 
                 file << time << sep << modelId << sep << modelName << sep << sep << state << std::endl;
             }
 
+            /**
+             * Method for converting a string statement to be Thousands of Problems for Theorem Provers (TPTP) compatible
+             * @param value a string representing a variable's value (Ex: "true", "speed", "57")
+             */
+            std::string tptpConversion(std::string value){
+                std::regex true_regex(R"^[t|T]rue$|^TRUE$");
+                std::regex false_regex(R"^[f|F]alse$|^FALSE$");
+                std::regex int_regex(R"^\d*$");
+                if (std::regex_match(value,true_regex)){
+                    return "$true";
+                } else if (std::regex_match(value,false_regex)){
+                    return "$false";
+                } else if (std::regex_match(value,int_regex)){
+                    return value + ".0";
+                } 
+            }
+
+            /**
+             * Method for building a conjecture string that is a conjunction of the given axioms
+             * @param next_state_values is a list of strings representing the axioms that describe the next state's variables
+             */
             std::string buildConjecture(std::vector<std::string> next_state_values){
                 std::string conjecture = "";
                 for (int i = 0; i < next_state_values.size(); i++){
